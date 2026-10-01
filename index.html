@@ -144,6 +144,18 @@
       pointer-events: none;
     }
 
+    .photo-credit {
+      position: absolute;
+      z-index: 2;
+      left: 14px;
+      bottom: max(76px, calc(env(safe-area-inset-bottom) + 66px));
+      color: rgba(255, 255, 255, .9);
+      font-size: 10px;
+      font-weight: 700;
+      text-shadow: 0 1px 4px rgba(10, 31, 43, .8);
+    }
+    .photo-credit a { color: inherit; text-decoration-color: rgba(255, 255, 255, .55); }
+
     .touch-controls {
       position: absolute;
       z-index: 4;
@@ -207,6 +219,7 @@
     </section>
 
     <div class="bottom-hint">עברו בדיוק באמצע הטבעת כדי לצבור נקודה</div>
+    <div class="photo-credit"><a href="https://www.pexels.com/photo/lake-and-mountain-417074/" target="_blank" rel="noopener noreferrer">נוף: James Wheeler / Pexels</a></div>
     <div class="touch-controls" aria-label="כפתורי טיסה למגע">
       <button type="button" data-direction="down" aria-label="להוריד את המטוס">↓</button>
       <button type="button" data-direction="up" aria-label="להעלות את המטוס">↑</button>
@@ -243,45 +256,46 @@
       let particles = [];
       let smoke = [];
       let floatingScores = [];
-      const planeSprite = new Image();
-      const spriteFrameWidth = 160;
-      const spriteFrameHeight = 128;
-      let planeSpriteReady = false;
+      const landscapeImage = new Image();
+      let landscapeReady = false;
+      landscapeImage.onload = () => { landscapeReady = true; };
+      landscapeImage.src = 'data:image/jpeg;base64,PHOTO_DATA_PLACEHOLDER';
 
-      planeSprite.onload = () => { planeSpriteReady = true; };
-      planeSprite.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
-        <svg xmlns="http://www.w3.org/2000/svg" width="480" height="128" viewBox="0 0 480 128">
-          <defs>
-            <g id="plane-body" stroke-linejoin="round" stroke-linecap="round">
-              <path d="M43 57 20 43Q17 42 17 47L22 70Q23 74 27 72L47 66Z" fill="#ef7666" stroke="#a84e48" stroke-width="2"/>
-              <path d="M42 55 52 33Q54 29 59 31L81 52 68 65Z" fill="#f57f68" stroke="#a84e48" stroke-width="2"/>
-              <path d="M60 62 78 82Q82 86 88 82L123 65 113 54Z" fill="#eb6c5c" stroke="#a84e48" stroke-width="2"/>
-              <path d="M68 59 81 31Q83 27 89 29L124 40 116 59Z" fill="#f57f68" stroke="#a84e48" stroke-width="2"/>
-              <path d="M78 38 84 34 119 45 116 51Z" fill="#fff1c7" opacity=".9"/>
-              <path d="M29 59Q43 46 80 47L132 51Q148 53 153 60 149 67 132 70L79 74Q44 75 29 65Z" fill="#f3b93f" stroke="#9e6c25" stroke-width="2"/>
-              <path d="M92 52Q101 40 119 43L132 52Z" fill="#b8e9ef" stroke="#6d9ea0" stroke-width="2"/>
-              <path d="M96 50Q103 43 110 43L105 51Z" fill="#fff" opacity=".82"/>
-              <path d="M80 69Q103 73 128 68" fill="none" stroke="#d4932e" stroke-width="2"/>
-              <circle cx="138" cy="57" r="2.3" fill="#234b57"/>
-              <path d="M134 64Q139 68 144 63" fill="none" stroke="#9c533e" stroke-width="1.6"/>
-              <circle cx="131" cy="65" r="2.5" fill="#e98775" opacity=".82"/>
-              <path d="M77 73 75 82M108 71 111 80" fill="none" stroke="#536f70" stroke-width="2.5"/>
-              <circle cx="74" cy="84" r="3.5" fill="#35525a"/>
-              <circle cx="112" cy="82" r="3.5" fill="#35525a"/>
-            </g>
-          </defs>
-          <use href="#plane-body" x="0"/>
-          <use href="#plane-body" x="160"/>
-          <use href="#plane-body" x="320"/>
-          <g fill="#415d62" stroke="#fff1c7" stroke-width="1.4" stroke-linejoin="round">
-            <g transform="rotate(0 153 60)"><path d="M151 58V47Q153 43 155 47V58M155 62V73Q153 77 151 73V62Z"/></g>
-            <g transform="rotate(60 313 60)"><path d="M311 58V47Q313 43 315 47V58M315 62V73Q313 77 311 73V62Z"/></g>
-            <g transform="rotate(120 473 60)"><path d="M471 58V47Q473 43 475 47V58M475 62V73Q473 77 471 73V62Z"/></g>
-          </g>
-          <g fill="#c8892c" stroke="#fff1c7" stroke-width="1">
-            <circle cx="153" cy="60" r="3.2"/><circle cx="313" cy="60" r="3.2"/><circle cx="473" cy="60" r="3.2"/>
-          </g>
-        </svg>`);
+      const aircraftFaces = (() => {
+        const faces = [];
+        const addTriangle = (a, b, c, color) => faces.push({ points: [a, b, c], color });
+        const addQuad = (a, b, c, d, color) => {
+          addTriangle(a, b, c, color);
+          addTriangle(a, c, d, color);
+        };
+        const sections = [
+          [-1.22, .035, .04], [-.92, .105, .11], [-.52, .17, .16],
+          [.08, .205, .19], [.67, .16, .15], [1.08, .095, .09], [1.3, .012, .018]
+        ];
+        for (let section = 0; section < sections.length - 1; section++) {
+          for (let side = 0; side < 12; side++) {
+            const angle0 = side / 12 * Math.PI * 2;
+            const angle1 = (side + 1) / 12 * Math.PI * 2;
+            const point = (part, angle) => [part[0], Math.cos(angle) * part[1], Math.sin(angle) * part[2]];
+            const upperness = Math.sin((angle0 + angle1) / 2);
+            const sideness = Math.cos((angle0 + angle1) / 2);
+            const color = upperness > .42 ? '#fff4d4' : sideness < -.25 ? '#f0c35d' : '#d99a4b';
+            addQuad(point(sections[section], angle0), point(sections[section + 1], angle0), point(sections[section + 1], angle1), point(sections[section], angle1), color);
+          }
+        }
+
+        for (const side of [-1, 1]) {
+          addQuad([.34, side * .17, .025], [-.12, side * 1.62, .015], [-.76, side * 1.62, -.005], [-.55, side * .17, .07], '#ed7662');
+          addQuad([-.55, side * .17, .07], [-.76, side * 1.62, -.005], [-.81, side * 1.62, -.075], [-.57, side * .17, -.065], '#b9584e');
+          addQuad([-.78, side * .92, .016], [-.94, side * 1.45, .01], [-1.14, side * 1.45, -.005], [-1.08, side * .92, .025], '#e9836c');
+        }
+        addQuad([.72, -.105, .17], [.2, -.105, .25], [.2, .105, .25], [.72, .105, .17], '#79c8d2');
+        addTriangle([-.95, -.04, .1], [-.48, -.04, .1], [-.82, -.04, .58], '#e96f5d');
+        addTriangle([-.95, .04, .1], [-.82, .04, .58], [-.48, .04, .1], '#f38a70');
+        addQuad([.15, -.25, -.12], [-.05, -1.62, -.07], [-.78, -1.62, -.12], [-.5, -.25, -.18], '#bd6759');
+        addQuad([.15, .25, -.12], [-.5, .25, -.18], [-.78, 1.62, -.12], [-.05, 1.62, -.07], '#bd6759');
+        return faces;
+      })();
 
       bestLabel.textContent = best;
 
@@ -324,40 +338,27 @@
         context.fill();
       }
 
-      function drawMountainLayer(time, baseY, segmentWidth, speed, color, peakHeight) {
-        const offset = (time * speed / 1000) % segmentWidth;
-        context.fillStyle = color;
-        context.beginPath();
-        for (let x = -segmentWidth - offset; x < width + segmentWidth; x += segmentWidth) {
-          context.moveTo(x, baseY);
-          context.lineTo(x + segmentWidth * .18, baseY - peakHeight * .42);
-          context.lineTo(x + segmentWidth * .36, baseY - peakHeight * .16);
-          context.lineTo(x + segmentWidth * .6, baseY - peakHeight);
-          context.lineTo(x + segmentWidth * .82, baseY - peakHeight * .3);
-          context.lineTo(x + segmentWidth, baseY);
-        }
-        context.lineTo(width, height);
-        context.lineTo(0, height);
-        context.closePath();
-        context.fill();
-      }
-
       function drawBackground(time, delta) {
-        const sky = context.createLinearGradient(0, 0, 0, height);
-        sky.addColorStop(0, '#a9e1ec');
-        sky.addColorStop(.62, '#d7f0e9');
-        sky.addColorStop(1, '#ffe3ad');
-        context.fillStyle = sky;
-        context.fillRect(0, 0, width, height);
-
-        context.fillStyle = 'rgba(255, 242, 180, .78)';
-        context.beginPath();
-        context.arc(width * .78, height * .23, Math.min(47, width * .085), 0, Math.PI * 2);
-        context.fill();
-        context.fillStyle = 'rgba(255, 255, 255, .16)';
-        context.beginPath();
-        context.arc(width * .78, height * .23, Math.min(65, width * .11), 0, Math.PI * 2);
-        context.fill();
+        if (landscapeReady) {
+          const scale = Math.max(width / landscapeImage.width, height / landscapeImage.height) * 1.12;
+          const imageWidth = landscapeImage.width * scale;
+          const imageHeight = landscapeImage.height * scale;
+          const pan = Math.sin(time * .000055) * Math.max(0, imageWidth - width) * .45;
+          context.drawImage(landscapeImage, (width - imageWidth) / 2 - pan, (height - imageHeight) / 2, imageWidth, imageHeight);
+          const atmosphere = context.createLinearGradient(0, 0, 0, height);
+          atmosphere.addColorStop(0, 'rgba(24, 68, 91, .1)');
+          atmosphere.addColorStop(.58, 'rgba(41, 84, 94, .02)');
+          atmosphere.addColorStop(1, 'rgba(18, 44, 55, .24)');
+          context.fillStyle = atmosphere;
+          context.fillRect(0, 0, width, height);
+        } else {
+          const sky = context.createLinearGradient(0, 0, 0, height);
+          sky.addColorStop(0, '#a9e1ec');
+          sky.addColorStop(.62, '#d7f0e9');
+          sky.addColorStop(1, '#ffe3ad');
+          context.fillStyle = sky;
+          context.fillRect(0, 0, width, height);
+        }
 
         for (const cloud of clouds) {
           cloud.x -= cloud.speed * delta;
@@ -366,38 +367,6 @@
             cloud.y = 55 + Math.random() * height * .68;
           }
           drawCloud(cloud, time);
-        }
-
-        drawMountainLayer(time, height * .83, 470, 12, '#a1d3bd', 82);
-        drawMountainLayer(time, height * .85, 360, 23, '#81c5a9', 57);
-
-        const horizon = height * .83;
-        context.fillStyle = '#82c6ad';
-        context.beginPath();
-        context.moveTo(0, horizon + 30);
-        context.quadraticCurveTo(width * .19, horizon - 30, width * .38, horizon + 12);
-        context.quadraticCurveTo(width * .62, horizon + 54, width * .82, horizon - 3);
-        context.quadraticCurveTo(width * .92, horizon - 34, width, horizon - 7);
-        context.lineTo(width, height);
-        context.lineTo(0, height);
-        context.closePath();
-        context.fill();
-
-        context.fillStyle = '#65b99e';
-        context.beginPath();
-        context.moveTo(0, horizon + 52);
-        context.quadraticCurveTo(width * .21, horizon + 3, width * .43, horizon + 45);
-        context.quadraticCurveTo(width * .69, horizon + 81, width, horizon + 18);
-        context.lineTo(width, height);
-        context.lineTo(0, height);
-        context.closePath();
-        context.fill();
-
-        context.fillStyle = 'rgba(255,255,255,.72)';
-        for (let i = 0; i < 9; i++) {
-          const x = ((i * 173 - time * .035) % (width + 60) + width + 60) % (width + 60);
-          const y = horizon + 36 + (i % 3) * 20;
-          context.fillRect(x, y, 22, 3);
         }
       }
 
@@ -443,24 +412,87 @@
       function drawPlane(time) {
         const x = width * .29;
         const y = planeY + Math.sin(time * .008) * 2;
-        const spriteWidth = 132;
-        const spriteHeight = 106;
-        const frame = Math.floor(time / 95) % 3;
-        const bank = Math.max(-.28, Math.min(.28, planeVelocity * .00085));
-        context.save();
-        context.translate(x, y);
-        context.rotate(bank);
+        const pitch = Math.max(-.32, Math.min(.32, planeVelocity * .00072));
+        const bank = Math.max(-.08, Math.min(.08, planeVelocity * .00018));
+        const eye = [4.2, -7.2, 4.4];
+        const normalize = vector => {
+          const length = Math.hypot(...vector);
+          return vector.map(value => value / length);
+        };
+        const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+        const forward = normalize(eye.map(value => -value));
+        const right = normalize([forward[1], -forward[0], 0]);
+        const up = normalize([
+          right[1] * forward[2] - right[2] * forward[1],
+          right[2] * forward[0] - right[0] * forward[2],
+          right[0] * forward[1] - right[1] * forward[0]
+        ]);
+        const project = point => {
+          const cosinePitch = Math.cos(pitch);
+          const sinePitch = Math.sin(pitch);
+          const pitchedX = point[0] * cosinePitch + point[2] * sinePitch;
+          const pitchedZ = -point[0] * sinePitch + point[2] * cosinePitch;
+          const cosineBank = Math.cos(bank);
+          const sineBank = Math.sin(bank);
+          const rotated = [
+            pitchedX,
+            point[1] * cosineBank - pitchedZ * sineBank,
+            point[1] * sineBank + pitchedZ * cosineBank
+          ];
+          const relative = rotated.map((value, index) => value - eye[index]);
+          const depth = dot(relative, forward);
+          if (depth <= 0) return null;
+          const focalLength = height * .62 / depth;
+          return {
+            x: dot(relative, right) * focalLength,
+            y: -dot(relative, up) * focalLength,
+            depth
+          };
+        };
 
+        const faces = aircraftFaces.slice();
+        const propAngle = time * .035;
+        for (let blade = 0; blade < 2; blade++) {
+          const angle = propAngle + blade * Math.PI;
+          const radialY = Math.cos(angle);
+          const radialZ = Math.sin(angle);
+          const tangentY = -radialZ;
+          const tangentZ = radialY;
+          const bladePoint = (radius, widthOffset) => [
+            1.34,
+            radialY * radius + tangentY * widthOffset,
+            radialZ * radius + tangentZ * widthOffset
+          ];
+          faces.push({
+            points: [bladePoint(.06, -.07), bladePoint(.46, -.045), bladePoint(.46, .045), bladePoint(.06, .07)],
+            color: blade === 0 ? '#465b60' : '#f4d184'
+          });
+        }
+
+        const projectedFaces = faces.map(face => {
+          const points = face.points.map(project);
+          if (points.some(point => point === null)) return null;
+          return { color: face.color, points, depth: points.reduce((sum, point) => sum + point.depth, 0) / points.length };
+        }).filter(Boolean).sort((a, b) => b.depth - a.depth);
+
+        context.save();
         context.fillStyle = 'rgba(42, 88, 88, .14)';
         context.beginPath();
-        context.ellipse(0, 28, 43, 8, 0, 0, Math.PI * 2);
+        context.ellipse(x, y + 34, 48, 9, 0, 0, Math.PI * 2);
         context.fill();
-        if (planeSpriteReady) {
-          context.drawImage(
-            planeSprite,
-            frame * spriteFrameWidth, 0, spriteFrameWidth, spriteFrameHeight,
-            -spriteWidth / 2, -spriteHeight / 2, spriteWidth, spriteHeight
-          );
+        context.lineJoin = 'round';
+        context.lineWidth = 1.2;
+        for (const face of projectedFaces) {
+          context.beginPath();
+          context.moveTo(x + face.points[0].x, y + face.points[0].y);
+          for (let index = 1; index < face.points.length; index++) {
+            context.lineTo(x + face.points[index].x, y + face.points[index].y);
+          }
+          context.closePath();
+          context.fillStyle = face.color;
+          context.fill();
+          context.strokeStyle = 'rgba(67, 55, 48, .28)';
+          context.stroke();
         }
         context.restore();
       }
