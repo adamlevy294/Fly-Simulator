@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#b9e8ef">
+  <title>טייסת קטנה | מסע בין טבעות</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #173744;
+      --sky: #b9e8ef;
+      --coral: #f57f68;
+      --gold: #f3b93f;
+      --paper: #fffdf4;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+
+    body {
+      font-family: "Trebuchet MS", "Arial Rounded MT Bold", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--sky);
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+
+    #game {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 420px;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+    .topbar {
+      position: absolute;
+      z-index: 2;
+      top: max(18px, env(safe-area-inset-top));
+      left: max(18px, env(safe-area-inset-left));
+      right: max(18px, env(safe-area-inset-right));
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      direction: rtl;
+      pointer-events: none;
+    }
+
+    .brand { display: grid; gap: 3px; text-shadow: 0 2px 0 rgba(255,255,255,.46); }
+    .brand strong { font-size: clamp(20px, 3vw, 27px); line-height: 1; letter-spacing: 0; }
+    .brand span { font-size: 12px; font-weight: 700; color: #44717a; }
+
+    .scoreboard { display: flex; gap: 9px; direction: rtl; }
+    .score-box {
+      min-width: 84px;
+      padding: 9px 13px 8px;
+      border: 1px solid rgba(35, 89, 99, .12);
+      border-radius: 8px;
+      background: rgba(255, 253, 244, .86);
+      box-shadow: 0 4px 0 rgba(30, 90, 100, .08);
+      text-align: center;
+    }
+    .score-box span { display: block; margin-bottom: 2px; color: #60838a; font-size: 10px; font-weight: 800; }
+    .score-box strong { font-size: 21px; line-height: 1; font-variant-numeric: tabular-nums; }
+    .score-box.best strong { color: #d99623; }
+
+    .overlay {
+      position: absolute;
+      z-index: 3;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 90px 20px 110px;
+      background: rgba(24, 71, 80, .12);
+      transition: opacity .2s ease, visibility .2s ease;
+    }
+    .overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+    .panel {
+      width: min(420px, 100%);
+      padding: 27px 30px 25px;
+      border: 2px solid rgba(255,255,255,.9);
+      border-radius: 12px;
+      background: var(--paper);
+      box-shadow: 0 8px 0 rgba(37, 93, 98, .12), 0 24px 60px rgba(28, 81, 91, .18);
+      text-align: center;
+      animation: pop-in .48s cubic-bezier(.2,.8,.25,1.15) both;
+    }
+    .plane-stamp { font-size: 43px; line-height: 1.2; filter: drop-shadow(0 3px 0 rgba(220, 151, 33, .24)); }
+    h1 { margin: 4px 0 7px; font-size: clamp(24px, 5vw, 32px); line-height: 1.2; letter-spacing: 0; }
+    .panel p { margin: 0 auto 20px; max-width: 290px; color: #53747a; font-size: 15px; line-height: 1.55; }
+    .start-button {
+      min-height: 50px;
+      width: 100%;
+      border: 0;
+      border-radius: 7px;
+      background: var(--coral);
+      color: white;
+      font: inherit;
+      font-size: 17px;
+      font-weight: 900;
+      box-shadow: 0 4px 0 #d96450;
+      cursor: pointer;
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+    }
+    .start-button:hover { background: #f16f59; transform: translateY(-1px); box-shadow: 0 5px 0 #d96450; }
+    .start-button:active { transform: translateY(3px); box-shadow: 0 1px 0 #d96450; }
+    .instructions { margin-top: 15px; color: #719096; font-size: 12px; font-weight: 700; }
+    kbd {
+      display: inline-grid;
+      min-width: 25px;
+      height: 24px;
+      place-items: center;
+      margin: 0 2px;
+      border: 1px solid #c8dadd;
+      border-bottom-width: 3px;
+      border-radius: 5px;
+      background: #f7fbf8;
+      color: #315a62;
+      font: inherit;
+      font-size: 12px;
+    }
+
+    .bottom-hint {
+      position: absolute;
+      z-index: 2;
+      right: 50%;
+      bottom: max(22px, env(safe-area-inset-bottom));
+      transform: translateX(50%);
+      padding: 9px 15px;
+      border: 1px solid rgba(48, 104, 111, .12);
+      border-radius: 7px;
+      background: rgba(255,253,244,.72);
+      color: #4f777e;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .touch-controls {
+      position: absolute;
+      z-index: 4;
+      left: max(18px, env(safe-area-inset-left));
+      bottom: max(18px, env(safe-area-inset-bottom));
+      display: flex;
+      gap: 8px;
+      direction: ltr;
+    }
+    .touch-controls button {
+      width: 52px;
+      height: 52px;
+      border: 1px solid rgba(36, 87, 96, .18);
+      border-radius: 8px;
+      background: rgba(255, 253, 244, .78);
+      color: #315b63;
+      font: inherit;
+      font-size: 22px;
+      font-weight: 900;
+      box-shadow: 0 3px 0 rgba(41, 91, 97, .15);
+      touch-action: none;
+    }
+    .touch-controls button:active, .touch-controls button.pressed { transform: translateY(2px); box-shadow: 0 1px 0 rgba(41, 91, 97, .15); background: #fffdf4; }
+
+    @keyframes pop-in { from { opacity: 0; transform: translateY(12px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @media (max-width: 560px) {
+      .topbar { top: max(14px, env(safe-area-inset-top)); left: 14px; right: 14px; }
+      .score-box { min-width: 64px; padding: 8px 9px 7px; }
+      .score-box strong { font-size: 18px; }
+      .scoreboard { gap: 6px; }
+      .brand span { font-size: 10px; }
+      .bottom-hint { bottom: max(22px, env(safe-area-inset-bottom)); font-size: 11px; }
+      .touch-controls { left: 14px; bottom: max(13px, env(safe-area-inset-bottom)); }
+      .touch-controls button { width: 46px; height: 46px; }
+      .panel { padding: 24px 21px 22px; }
+    }
+    @media (hover: none) {
+      .bottom-hint { bottom: max(75px, calc(env(safe-area-inset-bottom) + 65px)); }
+    }
+  </style>
+</head>
+<body>
+  <main id="game" aria-label="סימולטור טיסה">
+    <canvas id="scene" aria-label="מטוס עובר דרך טבעות זהב בשמיים"></canvas>
+    <header class="topbar">
+      <div class="brand"><strong>טייסת קטנה</strong><span>מסע בין טבעות</span></div>
+      <div class="scoreboard" aria-live="polite">
+        <div class="score-box"><span>טבעות</span><strong id="score">0</strong></div>
+        <div class="score-box best"><span>שיא</span><strong id="best">0</strong></div>
+      </div>
+    </header>
+
+    <section id="overlay" class="overlay" aria-label="מסך פתיחה">
+      <div class="panel">
+        <div class="plane-stamp" aria-hidden="true">✈️</div>
+        <h1 id="title">מוכנים להמראה?</h1>
+        <p id="message">טוסו בין העננים, כוונו את המטוס ועברו דרך טבעות הזהב.</p>
+        <button id="start" class="start-button" type="button">מתחילים לטוס</button>
+        <div class="instructions"><kbd>↑</kbd> לעלות <kbd>↓</kbd> לרדת</div>
+      </div>
+    </section>
+
+    <div class="bottom-hint">עברו בדיוק באמצע הטבעת כדי לצבור נקודה</div>
+    <div class="touch-controls" aria-label="כפתורי טיסה למגע">
+      <button type="button" data-direction="down" aria-label="להוריד את המטוס">↓</button>
+      <button type="button" data-direction="up" aria-label="להעלות את המטוס">↑</button>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('scene');
+      const context = canvas.getContext('2d');
+      const overlay = document.getElementById('overlay');
+      const startButton = document.getElementById('start');
+      const title = document.getElementById('title');
+      const message = document.getElementById('message');
+      const scoreLabel = document.getElementById('score');
+      const bestLabel = document.getElementById('best');
+      const controls = [...document.querySelectorAll('.touch-controls button')];
+      const keys = { up: false, down: false };
+      const bestKey = 'little-pilot-best';
+      let width = 0;
+      let height = 0;
+      let pixelRatio = 1;
+      let lastTime = 0;
+      let elapsed = 0;
+      let score = 0;
+      let best = Number(localStorage.getItem(bestKey) || 0);
+      let status = 'ready';
+      let planeY = 0;
+      let planeVelocity = 0;
+      let smokeTimer = 0;
+      let audioContext = null;
+      let rings = [];
+      let clouds = [];
+      let particles = [];
+      let smoke = [];
+      let floatingScores = [];
+      const planeSprite = new Image();
+      const spriteFrameWidth = 160;
+      const spriteFrameHeight = 128;
+      let planeSpriteReady = false;
+
+      planeSprite.onload = () => { planeSpriteReady = true; };
+      planeSprite.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="480" height="128" viewBox="0 0 480 128">
+          <defs>
+            <g id="plane-body" stroke-linejoin="round" stroke-linecap="round">
+              <path d="M43 57 20 43Q17 42 17 47L22 70Q23 74 27 72L47 66Z" fill="#ef7666" stroke="#a84e48" stroke-width="2"/>
+              <path d="M42 55 52 33Q54 29 59 31L81 52 68 65Z" fill="#f57f68" stroke="#a84e48" stroke-width="2"/>
+              <path d="M60 62 78 82Q82 86 88 82L123 65 113 54Z" fill="#eb6c5c" stroke="#a84e48" stroke-width="2"/>
+              <path d="M68 59 81 31Q83 27 89 29L124 40 116 59Z" fill="#f57f68" stroke="#a84e48" stroke-width="2"/>
+              <path d="M78 38 84 34 119 45 116 51Z" fill="#fff1c7" opacity=".9"/>
+              <path d="M29 59Q43 46 80 47L132 51Q148 53 153 60 149 67 132 70L79 74Q44 75 29 65Z" fill="#f3b93f" stroke="#9e6c25" stroke-width="2"/>
+              <path d="M92 52Q101 40 119 43L132 52Z" fill="#b8e9ef" stroke="#6d9ea0" stroke-width="2"/>
+              <path d="M96 50Q103 43 110 43L105 51Z" fill="#fff" opacity=".82"/>
+              <path d="M80 69Q103 73 128 68" fill="none" stroke="#d4932e" stroke-width="2"/>
+              <circle cx="138" cy="57" r="2.3" fill="#234b57"/>
+              <path d="M134 64Q139 68 144 63" fill="none" stroke="#9c533e" stroke-width="1.6"/>
+              <circle cx="131" cy="65" r="2.5" fill="#e98775" opacity=".82"/>
+              <path d="M77 73 75 82M108 71 111 80" fill="none" stroke="#536f70" stroke-width="2.5"/>
+              <circle cx="74" cy="84" r="3.5" fill="#35525a"/>
+              <circle cx="112" cy="82" r="3.5" fill="#35525a"/>
+            </g>
+          </defs>
+          <use href="#plane-body" x="0"/>
+          <use href="#plane-body" x="160"/>
+          <use href="#plane-body" x="320"/>
+          <g fill="#415d62" stroke="#fff1c7" stroke-width="1.4" stroke-linejoin="round">
+            <g transform="rotate(0 153 60)"><path d="M151 58V47Q153 43 155 47V58M155 62V73Q153 77 151 73V62Z"/></g>
+            <g transform="rotate(60 313 60)"><path d="M311 58V47Q313 43 315 47V58M315 62V73Q313 77 311 73V62Z"/></g>
+            <g transform="rotate(120 473 60)"><path d="M471 58V47Q473 43 475 47V58M475 62V73Q473 77 471 73V62Z"/></g>
+          </g>
+          <g fill="#c8892c" stroke="#fff1c7" stroke-width="1">
+            <circle cx="153" cy="60" r="3.2"/><circle cx="313" cy="60" r="3.2"/><circle cx="473" cy="60" r="3.2"/>
+          </g>
+        </svg>`);
+
+      bestLabel.textContent = best;
+
+      function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(width * pixelRatio);
+        canvas.height = Math.round(height * pixelRatio);
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        if (!planeY || status !== 'playing') planeY = height * .48;
+        seedClouds();
+      }
+
+      function seedClouds() {
+        clouds = Array.from({ length: Math.ceil(width / 150) + 4 }, (_, index) => ({
+          x: index * 175 + Math.random() * 100,
+          y: 55 + Math.random() * height * .68,
+          size: 22 + Math.random() * 38,
+          speed: 8 + Math.random() * 16,
+          phase: Math.random() * Math.PI * 2
+        }));
+      }
+
+      function roundedRect(x, y, w, h, radius) {
+        context.beginPath();
+        context.roundRect(x, y, w, h, radius);
+      }
+
+      function drawCloud(cloud, time) {
+        const bob = Math.sin(time * .00045 + cloud.phase) * 4;
+        const x = cloud.x;
+        const y = cloud.y + bob;
+        context.fillStyle = 'rgba(255, 255, 255, .72)';
+        context.beginPath();
+        context.ellipse(x, y, cloud.size * .9, cloud.size * .25, 0, 0, Math.PI * 2);
+        context.ellipse(x - cloud.size * .38, y - cloud.size * .12, cloud.size * .42, cloud.size * .31, 0, 0, Math.PI * 2);
+        context.ellipse(x + cloud.size * .05, y - cloud.size * .25, cloud.size * .48, cloud.size * .4, 0, 0, Math.PI * 2);
+        context.ellipse(x + cloud.size * .45, y - cloud.size * .1, cloud.size * .38, cloud.size * .28, 0, 0, Math.PI * 2);
+        context.fill();
+      }
+
+      function drawMountainLayer(time, baseY, segmentWidth, speed, color, peakHeight) {
+        const offset = (time * speed / 1000) % segmentWidth;
+        context.fillStyle = color;
+        context.beginPath();
+        for (let x = -segmentWidth - offset; x < width + segmentWidth; x += segmentWidth) {
+          context.moveTo(x, baseY);
+          context.lineTo(x + segmentWidth * .18, baseY - peakHeight * .42);
+          context.lineTo(x + segmentWidth * .36, baseY - peakHeight * .16);
+          context.lineTo(x + segmentWidth * .6, baseY - peakHeight);
+          context.lineTo(x + segmentWidth * .82, baseY - peakHeight * .3);
+          context.lineTo(x + segmentWidth, baseY);
+        }
+        context.lineTo(width, height);
+        context.lineTo(0, height);
+        context.closePath();
+        context.fill();
+      }
+
+      function drawBackground(time, delta) {
+        const sky = context.createLinearGradient(0, 0, 0, height);
+        sky.addColorStop(0, '#a9e1ec');
+        sky.addColorStop(.62, '#d7f0e9');
+        sky.addColorStop(1, '#ffe3ad');
+        context.fillStyle = sky;
+        context.fillRect(0, 0, width, height);
+
+        context.fillStyle = 'rgba(255, 242, 180, .78)';
+        context.beginPath();
+        context.arc(width * .78, height * .23, Math.min(47, width * .085), 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = 'rgba(255, 255, 255, .16)';
+        context.beginPath();
+        context.arc(width * .78, height * .23, Math.min(65, width * .11), 0, Math.PI * 2);
+        context.fill();
+
+        for (const cloud of clouds) {
+          cloud.x -= cloud.speed * delta;
+          if (cloud.x < -cloud.size * 2) {
+            cloud.x = width + cloud.size;
+            cloud.y = 55 + Math.random() * height * .68;
+          }
+          drawCloud(cloud, time);
+        }
+
+        drawMountainLayer(time, height * .83, 470, 12, '#a1d3bd', 82);
+        drawMountainLayer(time, height * .85, 360, 23, '#81c5a9', 57);
+
+        const horizon = height * .83;
+        context.fillStyle = '#82c6ad';
+        context.beginPath();
+        context.moveTo(0, horizon + 30);
+        context.quadraticCurveTo(width * .19, horizon - 30, width * .38, horizon + 12);
+        context.quadraticCurveTo(width * .62, horizon + 54, width * .82, horizon - 3);
+        context.quadraticCurveTo(width * .92, horizon - 34, width, horizon - 7);
+        context.lineTo(width, height);
+        context.lineTo(0, height);
+        context.closePath();
+        context.fill();
+
+        context.fillStyle = '#65b99e';
+        context.beginPath();
+        context.moveTo(0, horizon + 52);
+        context.quadraticCurveTo(width * .21, horizon + 3, width * .43, horizon + 45);
+        context.quadraticCurveTo(width * .69, horizon + 81, width, horizon + 18);
+        context.lineTo(width, height);
+        context.lineTo(0, height);
+        context.closePath();
+        context.fill();
+
+        context.fillStyle = 'rgba(255,255,255,.72)';
+        for (let i = 0; i < 9; i++) {
+          const x = ((i * 173 - time * .035) % (width + 60) + width + 60) % (width + 60);
+          const y = horizon + 36 + (i % 3) * 20;
+          context.fillRect(x, y, 22, 3);
+        }
+      }
+
+      function drawRing(ring) {
+        if (ring.burst) return;
+        const rx = ring.radius * .72;
+        const ry = ring.radius;
+        const isSuccess = ring.successTime > 0;
+        context.save();
+        context.translate(ring.x, ring.y);
+        context.shadowColor = isSuccess ? 'rgba(49, 185, 105, .72)' : 'rgba(121, 79, 22, .28)';
+        context.shadowBlur = isSuccess ? 18 : 0;
+        context.strokeStyle = isSuccess ? 'rgba(28, 126, 77, .34)' : 'rgba(121, 79, 22, .28)';
+        context.lineWidth = 14;
+        context.beginPath();
+        context.ellipse(3, 4, rx, ry, 0, 0, Math.PI * 2);
+        context.stroke();
+        const ringColor = context.createLinearGradient(-rx, -ry, rx, ry);
+        if (isSuccess) {
+          ringColor.addColorStop(0, '#c9ff9f');
+          ringColor.addColorStop(.45, '#35c978');
+          ringColor.addColorStop(.72, '#e1ffc0');
+          ringColor.addColorStop(1, '#198750');
+        } else {
+          ringColor.addColorStop(0, '#ffe785');
+          ringColor.addColorStop(.45, '#edae2b');
+          ringColor.addColorStop(.72, '#fff1a1');
+          ringColor.addColorStop(1, '#d7901e');
+        }
+        context.strokeStyle = ringColor;
+        context.lineWidth = 11;
+        context.beginPath();
+        context.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+        context.stroke();
+        context.strokeStyle = 'rgba(255,255,255,.7)';
+        context.lineWidth = 2;
+        context.beginPath();
+        context.ellipse(-1.5, -1, rx - 4, ry - 4, 0, Math.PI * 1.08, Math.PI * 1.78);
+        context.stroke();
+        context.restore();
+      }
+
+      function drawPlane(time) {
+        const x = width * .29;
+        const y = planeY + Math.sin(time * .008) * 2;
+        const spriteWidth = 132;
+        const spriteHeight = 106;
+        const frame = Math.floor(time / 95) % 3;
+        const bank = Math.max(-.28, Math.min(.28, planeVelocity * .00085));
+        context.save();
+        context.translate(x, y);
+        context.rotate(bank);
+
+        context.fillStyle = 'rgba(42, 88, 88, .14)';
+        context.beginPath();
+        context.ellipse(0, 28, 43, 8, 0, 0, Math.PI * 2);
+        context.fill();
+        if (planeSpriteReady) {
+          context.drawImage(
+            planeSprite,
+            frame * spriteFrameWidth, 0, spriteFrameWidth, spriteFrameHeight,
+            -spriteWidth / 2, -spriteHeight / 2, spriteWidth, spriteHeight
+          );
+        }
+        context.restore();
+      }
+
+      function emitSparkles(x, y) {
+        const colors = ['#fff3a8', '#f4bd3f', '#fffdf4', '#74df91', '#f58a68'];
+        for (let index = 0; index < 30; index++) {
+          const angle = index / 30 * Math.PI * 2 + (Math.random() - .5) * .14;
+          const speed = 55 + Math.random() * 190;
+          particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: .65 + Math.random() * .45,
+            maxLife: 1.1,
+            size: 2 + Math.random() * 4,
+            color: colors[index % colors.length]
+          });
+        }
+        floatingScores.push({ x, y: y - 20, life: 1 });
+        playChime();
+      }
+
+      function drawParticles(delta) {
+        particles = particles.filter(particle => particle.life > 0);
+        for (const particle of particles) {
+          particle.life -= delta;
+          particle.x += particle.vx * delta;
+          particle.y += particle.vy * delta;
+          particle.vx *= Math.pow(.42, delta);
+          particle.vy += 70 * delta;
+          context.globalAlpha = Math.max(0, particle.life / particle.maxLife);
+          context.fillStyle = particle.color;
+          context.beginPath();
+          context.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+          context.fill();
+        }
+        context.globalAlpha = 1;
+
+        floatingScores = floatingScores.filter(item => item.life > 0);
+        context.save();
+        context.direction = 'ltr';
+        context.textAlign = 'center';
+        context.font = '900 28px "Trebuchet MS", Arial, sans-serif';
+        for (const item of floatingScores) {
+          item.life -= delta;
+          item.y -= 38 * delta;
+          context.globalAlpha = Math.min(1, item.life * 2);
+          context.lineWidth = 4;
+          context.lineJoin = 'round';
+          context.strokeStyle = 'rgba(133, 91, 29, .72)';
+          context.strokeText('+1', item.x, item.y);
+          context.fillStyle = '#fff7c9';
+          context.fillText('+1', item.x, item.y);
+        }
+        context.restore();
+        context.globalAlpha = 1;
+      }
+
+      function emitSmoke() {
+        smoke.push({
+          x: width * .29 - 43,
+          y: planeY + 2,
+          vx: -24 - Math.random() * 20,
+          vy: (Math.random() - .5) * 18,
+          life: .8 + Math.random() * .45,
+          maxLife: 1.25,
+          radius: 4 + Math.random() * 4
+        });
+      }
+
+      function drawSmoke(delta) {
+        smoke = smoke.filter(puff => puff.life > 0);
+        for (const puff of smoke) {
+          puff.life -= delta;
+          puff.x += puff.vx * delta;
+          puff.y += puff.vy * delta;
+          puff.radius += 8 * delta;
+          const fade = Math.max(0, puff.life / puff.maxLife);
+          context.globalAlpha = fade * .22;
+          context.fillStyle = '#f7fbf5';
+          context.beginPath();
+          context.arc(puff.x, puff.y, puff.radius, 0, Math.PI * 2);
+          context.fill();
+        }
+        context.globalAlpha = 1;
+      }
+
+      function ensureAudio() {
+        if (!audioContext) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) return;
+          audioContext = new AudioContextClass();
+        }
+        if (audioContext.state === 'suspended') audioContext.resume();
+      }
+
+      function playTone(frequency, duration, volume, type, delay = 0) {
+        if (!audioContext) return;
+        const startAt = audioContext.currentTime + delay;
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(frequency, startAt);
+        gain.gain.setValueAtTime(.0001, startAt);
+        gain.gain.linearRampToValueAtTime(volume, startAt + .012);
+        gain.gain.exponentialRampToValueAtTime(.0001, startAt + duration);
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start(startAt);
+        oscillator.stop(startAt + duration + .02);
+      }
+
+      function playChime() {
+        playTone(660, .2, .075, 'sine');
+        playTone(880, .28, .06, 'sine', .08);
+        playTone(1320, .34, .035, 'triangle', .16);
+      }
+
+      function playCrash() {
+        playTone(260, .25, .065, 'triangle');
+        playTone(180, .38, .05, 'sine', .12);
+      }
+
+      function addRing() {
+        const margin = Math.max(82, height * .15);
+        const upper = Math.max(margin, height * .2);
+        const lower = Math.min(height - margin, height * .78);
+        const previous = rings[rings.length - 1];
+        let y = upper + Math.random() * Math.max(1, lower - upper);
+        if (previous && Math.abs(y - previous.y) > height * .25) {
+          y = previous.y + Math.sign(y - previous.y) * height * .2;
+        }
+        rings.push({ x: width + 70, y, radius: Math.max(40, Math.min(60, height * .105)), passed: false });
+      }
+
+      function updateGame(delta) {
+        if (status !== 'playing') return;
+        smokeTimer += delta;
+        while (smokeTimer >= .065) {
+          smokeTimer -= .065;
+          emitSmoke();
+        }
+        const acceleration = 980;
+        if (keys.up) planeVelocity -= acceleration * delta;
+        if (keys.down) planeVelocity += acceleration * delta;
+        if (!keys.up && !keys.down) planeVelocity *= Math.pow(.08, delta);
+        planeVelocity = Math.max(-330, Math.min(330, planeVelocity));
+        planeY += planeVelocity * delta;
+
+        const planeRadius = 18;
+        if (planeY < planeRadius + 12 || planeY > height - planeRadius - 12) {
+          endGame();
+          return;
+        }
+
+        const speed = Math.min(320, 190 + score * 6);
+        for (const ring of rings) {
+          ring.x -= speed * delta;
+          if (!ring.passed && ring.x < width * .29 + 8) {
+            ring.passed = true;
+            if (Math.abs(planeY - ring.y) < ring.radius * .52) {
+              score++;
+              ring.successTime = .001;
+              scoreLabel.textContent = score;
+              emitSparkles(width * .29, ring.y);
+              if (score > best) {
+                best = score;
+                bestLabel.textContent = best;
+                localStorage.setItem(bestKey, String(best));
+              }
+            } else {
+              endGame();
+              return;
+            }
+          }
+          if (ring.successTime > 0) {
+            ring.successTime += delta;
+            if (ring.successTime > .34) ring.burst = true;
+          }
+        }
+        rings = rings.filter(ring => ring.x > -100);
+        if (rings.length === 0 || rings[rings.length - 1].x < width - Math.max(210, width * .32)) addRing();
+      }
+
+      function drawGame(delta, time) {
+        drawBackground(time, delta);
+        if (status === 'ready' && rings.length === 0) {
+          rings = [
+            { x: width * .69, y: height * .48, radius: Math.max(40, Math.min(60, height * .105)), passed: false },
+            { x: width * 1.22, y: height * .36, radius: Math.max(40, Math.min(60, height * .105)), passed: false }
+          ];
+        }
+        if (status === 'playing') {
+          updateGame(delta);
+          for (const ring of rings) drawRing(ring);
+        } else {
+          for (const ring of rings) drawRing(ring);
+        }
+        drawSmoke(delta);
+        drawPlane(time);
+        drawParticles(delta);
+      }
+
+      function startGame() {
+        ensureAudio();
+        score = 0;
+        scoreLabel.textContent = '0';
+        planeY = height * .48;
+        planeVelocity = 0;
+        rings = [];
+        particles = [];
+        smoke = [];
+        floatingScores = [];
+        smokeTimer = 0;
+        status = 'playing';
+        overlay.classList.add('hidden');
+        lastTime = performance.now();
+        addRing();
+      }
+
+      function endGame() {
+        status = 'over';
+        playCrash();
+        keys.up = false;
+        keys.down = false;
+        controls.forEach(button => button.classList.remove('pressed'));
+        title.textContent = score > 0 ? 'איזו טיסה נהדרת!' : 'כמעט הצלחתם!';
+        message.textContent = score === 1 ? 'עברת טבעת זהב אחת. יוצאים לסיבוב נוסף?' : `עברתם ${score} טבעות זהב. אפשר לנסות שוב ולשבור את השיא!`;
+        startButton.textContent = 'טסים שוב';
+        overlay.classList.remove('hidden');
+      }
+
+      function frame(time) {
+        const delta = Math.min((time - (lastTime || time)) / 1000, .035);
+        lastTime = time;
+        elapsed = time;
+        drawGame(delta, time);
+        requestAnimationFrame(frame);
+      }
+
+      function setKey(key, isDown) {
+        if (key === 'ArrowUp' || key === 'w' || key === 'W') keys.up = isDown;
+        if (key === 'ArrowDown' || key === 's' || key === 'S') keys.down = isDown;
+      }
+
+      window.addEventListener('keydown', event => {
+        if (['ArrowUp', 'ArrowDown', ' '].includes(event.key)) event.preventDefault();
+        if (event.key === ' ' && status !== 'playing') startGame();
+        setKey(event.key, true);
+      });
+      window.addEventListener('keyup', event => setKey(event.key, false));
+      window.addEventListener('blur', () => { keys.up = false; keys.down = false; });
+      startButton.addEventListener('click', startGame);
+      controls.forEach(button => {
+        const direction = button.dataset.direction;
+        const release = () => { keys[direction] = false; button.classList.remove('pressed'); };
+        button.addEventListener('pointerdown', event => {
+          event.preventDefault();
+          keys[direction] = true;
+          button.classList.add('pressed');
+          button.setPointerCapture(event.pointerId);
+        });
+        button.addEventListener('pointerup', release);
+        button.addEventListener('pointercancel', release);
+        button.addEventListener('lostpointercapture', release);
+      });
+      window.addEventListener('resize', resize);
+      resize();
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
